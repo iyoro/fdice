@@ -1,6 +1,6 @@
 /**
  * @file Module glue.
  */
-import parse from './fdice.js';
-
+import { parse, InvalidChunkError } from './fdice.js';
+export { parse, InvalidChunkError }
 export default parse;

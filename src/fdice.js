@@ -45,7 +45,7 @@ const replaceAll = curry((needle, newNeedle, haystack) => haystack.split(needle)
 /**
  * Indicates invalid chunks were found while parsing an expression.
  */
-class InvalidChunkError extends Error { }
+export class InvalidChunkError extends Error { }
 
 /**
  * Matches modifiers used in dice expressions.
