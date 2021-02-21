@@ -1,0 +1,30 @@
+{
+  "name": "fdice",
+  "version": "1.0.0",
+  "description": "Create functions to roll dice from expressions like '4d6 + 2'.",
+  "main": "./src/index.js",
+  "type": "module",
+  "dependencies": {
+    "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "jasmine": "^3.6.4"
+  },
+  "scripts": {
+    "test": "NODE_OPTIONS='--unhandled-rejections=strict' npx jasmine",
+    "smoketest": "NODE_OPTIONS='--unhandled-rejections=strict' npx jasmine spec/api.spec.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iyoro/fdice.git"
+  },
+  "keywords": [
+    "dice"
+  ],
+  "author": "iyoro",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/iyoro/fdice/issues"
+  },
+  "homepage": "https://github.com/iyoro/fdice#readme"
+}
