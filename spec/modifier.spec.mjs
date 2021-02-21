@@ -1,4 +1,4 @@
-import { parse, twice, reroll, dropHighest, dropLowest, explode, keepHighest, keepLowest } from '../src/fdice.js';
+import { parse, twice, reroll, dropHighest, dropLowest, explode, keepHighest, keepLowest, RollLimitExceededError } from '../src/fdice.js';
 import random from '../src/random.js';
 
 describe('Modifier', () => {
@@ -183,6 +183,24 @@ describe('Modifier', () => {
                 const g = parse(pair[1]);
                 expect(f()).toEqual(g());
             });
+        });
+    });
+
+    // See also related testing for expressions.
+    describe('limit', () => {
+        it('prevents too many dice being rolled', () => {
+            const f1 = parse('1d1!1'); // Endless loop.
+            expect(f1).toThrowError(RollLimitExceededError);
+            const f2 = parse('10d1!'); // Endless loop.
+            expect(f2).toThrowError(RollLimitExceededError);
+        });
+        it('is reset on each invocation', () => {
+            // i.e. test that we didn't somehow end up memoising the counter.
+            const f = parse('40d2!'); // Explodes pretty often so we can rack up re-rolls quickly.
+            const caller = () => {
+                for (let i = 0; i < 20; i++) { f(); }
+            }
+            expect(caller).not.toThrowError(RollLimitExceededError);
         });
     });
 });

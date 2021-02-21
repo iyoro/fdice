@@ -1,4 +1,4 @@
-import { parse } from '../src/fdice.js';
+import { parse, DieTooBigError, TooManyDiceError, TooManyChunksError } from '../src/fdice.js';
 import random from '../src/random.js';
 
 describe('Expression', () => {
@@ -44,5 +44,21 @@ describe('Expression', () => {
         expect(f).not.toBeNull();
         expect(f()).toBe(21);
         expect(s.calls.count()).toBe(5); // total dice rolled
+    });
+
+    // See also testing for modifiers, which may push a valid expression over a limit.
+    describe('limit', () => {
+        it('prevents using too many chunks', () => {
+            // 'actual' for toThrow must be a func.
+            expect(() => parse('1+1+1+1+1+1+1+1+1+1')).not.toThrowError(TooManyChunksError);
+            expect(() => parse('1+1+1+1+1+1+1+1+1+1+1')).toThrowError(TooManyChunksError);
+        });
+        it('prevents using too big of a die', () => {
+            expect(() => parse('1d1001')).toThrowError(DieTooBigError);
+        });
+
+        it('prevents using too many dice', () => {
+            expect(() => parse('101d6')).toThrowError(TooManyDiceError);
+        });
     });
 });

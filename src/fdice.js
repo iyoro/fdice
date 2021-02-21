@@ -48,6 +48,43 @@ const replaceAll = curry((needle, newNeedle, haystack) => haystack.split(needle)
 export class InvalidChunkError extends Error { }
 
 /**
+ * Indicates one or more chunks in the expression use a dice with too many sides
+ */
+export class DieTooBigError extends Error { }
+
+/**
+ * Indicates the chunks in the expression, combined, use too many dice.
+ */
+export class TooManyDiceError extends Error { }
+
+/**
+ * Indicates that a dice expression was terminated early because it tried to use too many dice. This error captures
+ * cases where TooManyDiceError wasn't triggered at parse time, but modifiers resulted in exceeding the limit later on.
+ */
+export class RollLimitExceededError extends Error { }
+
+/**
+ * Indicates that a dice expression contained too many chunks, not including whitespace.
+ */
+export class TooManyChunksError extends Error { }
+
+/**
+ * The larges number of chunks allowed in one expression.
+ */
+const MAX_CHUNKS = 10;
+
+/**
+ * The largest number of faces allowed on any die in a roll expression.
+ */
+const MAX_FACES = 1000;
+
+/**
+ * The largest number of dice that may be performed by one chunk, including modifiers, and also the 
+ * largest allowable static dice pool.
+ */
+const MAX_DICE = 100;
+
+/**
  * Matches modifiers used in dice expressions.
  *  - rN discard and reroll Ns
  *  - tN count Ns twice
@@ -151,7 +188,8 @@ export const dropLowest = (arg, reroll) => rolls => dropWhile(rolls.sort(asc), (
 export const dropHighest = (arg, reroll) => rolls => dropWhile(rolls.sort(desc), (v, i) => i < arg);
 
 /**
- * The 'exploding dice' modifier: rolls matching the argument are kept and re-rolled, and this process may chain.
+ * The 'exploding dice' modifier: rolls matching the argument are kept and re-rolled, and this process may chain until
+ * the operator exceeds the allowable number of dice.
  *
  * @param {number} arg The exploding value.
  * @param {function} reroll A function to roll a further die.
@@ -159,9 +197,12 @@ export const dropHighest = (arg, reroll) => rolls => dropWhile(rolls.sort(desc),
  */
 export const explode = (arg, reroll) => rolls => {
     let newRolls = rolls;
-    let sentinel = 30;
+    let sentinel = MAX_DICE - rolls.length;
     while (sentinel-- > 0 && newRolls.some(i => i === arg)) {
         newRolls = newRolls.flatMap(r => r === arg ? ['X', reroll()[0]] : r);
+    }
+    if (sentinel < 0) {
+        throw new RollLimitExceededError(`Explosion exceeded roll limit: ${newRolls.length} > ${MAX_DICE}`);
     }
     return newRolls.flatMap(r => r === 'X' ? arg : r);
 };
@@ -242,7 +283,7 @@ const diceFunc = (die, offset) => num => () => new Array(num).fill(0).map(() => 
 /**
  * Creates a function that rolls a number of dice and applies any modifiers according to the given expression chunk.
  * The result of each dice roll is summed and then optionally negated if the chunk as a whole is negative.
- * 
+ *
  * @function
  * @param {string} chunk An expression chunk representing a dice roll, like '-4d6'.
  * @returns {ChunkFunction} A function which computes the chunk value.
@@ -252,10 +293,16 @@ const createRoll = memoize(chunk => {
     const rollExpr = chunk.substr(negative || chunk.startsWith('+') ? 1 : 0);
     let { num, die, modifier } = rollExpr.match(DICE_CHUNK).groups;
     num = isNil(num) || num.length === 0 ? 1 : toSafeInteger(num);
+    if (num > MAX_DICE) {
+        throw new TooManyDiceError(`Dice pool is too large: ${num} > ${MAX_DICE}`);
+    }
     die = die.toUpperCase();
     // Special named die; every dF is a d3-2, and d% is an alias for d100.
     const offset = die === 'F' ? -2 : 0;
     die = die === '%' ? 100 : die === 'F' ? 3 : toSafeInteger(die);
+    if (die > MAX_FACES) {
+        throw new DieTooBigError(`Die has too many faces: ${die} > ${MAX_FACES}`);
+    }
     const rollDice = diceFunc(die, offset);
     const applyModifier = createModifier(modifier, rollDice(1), num, 1 + offset, die + offset);
     const maybeNegate = roll => negative ? roll.map(r => -r) : roll;
@@ -264,7 +311,7 @@ const createRoll = memoize(chunk => {
 
 /**
  * Creates a function that returns a constant.
- * 
+ *
  * @param {string} chunk An expression chunk representing a constant, like "+1".
  * @returns {ChunkFunction} A function which computes the chunk value.
  */
@@ -289,6 +336,9 @@ const createPart = chunk => (chunk.indexOf('d') === -1 ? createConst : createRol
 export const parse = memoize((expr) => {
     // Tidy and split into chunks: 3d6 + 1 -2 d2 => "3d6", "+1", "-2d2"
     const chunks = flow(toString, toLower, replaceAll(' ', ''), chunk)(expr);
+    if (chunks.length > MAX_CHUNKS) {
+        throw new TooManyChunksError(`Expression contains too many chunks: ${chunks.length} > ${MAX_CHUNKS}`);
+    }
     if (chunks.some(isInvalidChunk)) {
         throw new InvalidChunkError(`"${expr}" contains invalid or unsupported parts: ${chunks.filter(isInvalidChunk)}`);
     }
