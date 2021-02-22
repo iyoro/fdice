@@ -200,7 +200,7 @@ describe('Modifier', () => {
             const caller = () => {
                 for (let i = 0; i < 20; i++) { f(); }
             }
-            expect(caller).not.toThrowError(RollLimitExceededError);
+            expect(caller).not.toThrow();
         });
     });
 });

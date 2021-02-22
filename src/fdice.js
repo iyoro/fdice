@@ -43,6 +43,11 @@ const desc = (a, b) => b - a;
 const replaceAll = curry((needle, newNeedle, haystack) => haystack.split(needle).join(newNeedle));
 
 /**
+ * Indicates the expression is too long to parse.
+ */
+export class ExpressionTooLongError extends Error { }
+
+/**
  * Indicates invalid chunks were found while parsing an expression.
  */
 export class InvalidChunkError extends Error { }
@@ -74,15 +79,20 @@ export class TooManyChunksError extends Error { }
 const MAX_CHUNKS = 10;
 
 /**
+ * The largest number of dice that may be performed by one chunk, including modifiers, and also the 
+ * largest allowable static dice pool.
+ */
+const MAX_DICE = 100;
+
+/**
  * The largest number of faces allowed on any die in a roll expression.
  */
 const MAX_FACES = 1000;
 
 /**
- * The largest number of dice that may be performed by one chunk, including modifiers, and also the 
- * largest allowable static dice pool.
+ * The largest expression that may be parsed.
  */
-const MAX_DICE = 100;
+const MAX_LENGTH = 60;
 
 /**
  * Matches modifiers used in dice expressions.
@@ -334,6 +344,9 @@ const createPart = chunk => (chunk.indexOf('d') === -1 ? createConst : createRol
  * @returns {function} A function that will evaluate the result of the dice expression when it's called.
  */
 export const parse = memoize((expr) => {
+    if (expr.length > MAX_LENGTH) {
+        throw new ExpressionTooLongError(`Expression is too long: ${expr.length} > ${MAX_LENGTH}`);
+    }
     // Tidy and split into chunks: 3d6 + 1 -2 d2 => "3d6", "+1", "-2d2"
     const chunks = flow(toString, toLower, replaceAll(' ', ''), chunk)(expr);
     if (chunks.length > MAX_CHUNKS) {
